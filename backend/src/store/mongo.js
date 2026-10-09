@@ -64,8 +64,9 @@ class MongoStore {
   }
 
   async connect() {
-    await mongoose.connect(this.uri, { serverSelectionTimeoutMS: 8000 });
-    this.db = mongoose.connection.db;
+    // eigene Verbindung statt der globalen von mongoose: mehrere Stores im selben Prozess möglich
+    this.conn = await mongoose.createConnection(this.uri, { serverSelectionTimeoutMS: 8000 }).asPromise();
+    this.db = this.conn.db;
   }
 
   collection(name) {
@@ -92,7 +93,7 @@ class MongoStore {
   }
 
   async close() {
-    await mongoose.disconnect();
+    if (this.conn) await this.conn.close();
   }
 }
 

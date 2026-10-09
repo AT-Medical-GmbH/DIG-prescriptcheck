@@ -1,8 +1,8 @@
 # PrescriptCheck – Server-Betrieb (MVP, Docker Compose)
 
-> **Status: ungetestet.** Diese Dateien (Dockerfiles, Compose, NGINX, Backup-Skript) konnten in der Entwicklungsumgebung
-> nicht ausgeführt werden (kein Docker-Daemon). Der Anwendungscode ist getestet, der Container-Stack **noch nicht**.
-> Erster Durchlauf bitte auf einem **Staging-Server mit erfundenen Daten**, nicht direkt produktiv.
+> **Status: in der Entwicklungsumgebung funktional getestet, auf einem echten Server noch nicht.** Images, Compose-Stack, NGINX (TLS, Header,
+> Rate-Limit), Neustart sowie Backup/Restore wurden in einer Sandbox mit erfundenen Daten und selbstsigniertem Zertifikat durchlaufen.
+> Offen: Let's-Encrypt-Lauf, Firewall/VPN, Cron-Backup und Restore-Übung auf dem Zielserver. Erster Durchlauf dort bitte mit **erfundenen Daten**, nicht direkt produktiv.
 
 Zielbild laut Konzept (Kap. 13/17): Server in Deutschland, nur Port 80/443 offen, Datenbank nicht öffentlich erreichbar,
 Administration über VPN/Bastion. Servername, IP, DNS und Anbieter sind **nicht belastbar dokumentiert** und werden hier nicht

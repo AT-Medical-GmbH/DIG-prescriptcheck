@@ -6,3 +6,6 @@ proxy_set_header X-Forwarded-Proto $scheme;
 proxy_set_header X-Request-Id $request_id;
 proxy_read_timeout 30s;
 proxy_connect_timeout 5s;
+# Sicherheits-Header setzt für API-Antworten bereits das Backend (helmet) – Dopplungen vermeiden
+proxy_hide_header Strict-Transport-Security;
+proxy_hide_header X-Content-Type-Options;

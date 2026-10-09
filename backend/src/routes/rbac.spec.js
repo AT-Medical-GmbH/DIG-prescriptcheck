@@ -238,6 +238,20 @@ describe('Allgemeines', () => {
   });
 });
 
+describe('Rate-Limit-Zählung', () => {
+  test('erfolgreiche Anmeldungen und Token-Erneuerungen verbrauchen das Limit nicht (gemeinsame IP in einer Apotheke)', async () => {
+    const limited = await createHarness({ RATE_LIMIT: 'true' });
+    await limited.scenario();
+    const results = [];
+    for (let i = 0; i < 30; i++) {
+      const login = await limited.login('arzt@test.de');
+      results.push(login.status);
+      results.push((await limited.request().post('/api/v1/auth/refresh').send({ refreshToken: login.body.refreshToken })).status);
+    }
+    expect(results.every((s) => s === 200)).toBe(true);
+  });
+});
+
 describe('Konfiguration', () => {
   const { loadConfig } = require('../config');
   test('Produktion verlangt Geheimnisse und verbietet Speicher-Store/Demo-Daten', () => {

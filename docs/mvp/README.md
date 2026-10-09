@@ -37,7 +37,7 @@ backend/src/            Backend (Node.js 22, Express 5, keine neuen Abhängigkei
   routes/               HTTP-Routen und Rechtematrix-Test
   testing/              Test-Harness (nicht im Produktions-Image)
 frontend/app/           React-Oberfläche (Vite)
-deploy/mvp/             Docker-Compose-Stack, NGINX, Backup-Skript, Server-Anleitung  (ungetestet, s. u.)
+deploy/mvp/             Docker-Compose-Stack, NGINX, Backup-Skript, Server-Anleitung  (in Sandbox getestet, s. Kap. 5/9)
 docs/konzept/           Gesamtkonzept
 docs/adr/               Entscheidungen
 ```
@@ -75,13 +75,25 @@ Mit `REQUIRE_MFA=true` wird die Einrichtung der Zwei-Faktor-Authentifizierung er
 ## 5. Tests
 
 ```bash
-cd backend && npm test              # 8 Suiten, 455 Tests (Rechtematrix, Nebenläufigkeit, Manipulation, QR-Referenzvergleich, …)
+cd backend && npm test              # 8 Suiten, 456 Tests (Rechtematrix, Nebenläufigkeit, Manipulation, QR-Referenzvergleich, …)
 cd frontend && npm test && npm run lint && npm run build
-MONGODB_URI_TEST=mongodb://… npm test   # führt den Store-Vertragstest zusätzlich gegen eine LEERE Test-Datenbank aus
+MONGODB_URI_TEST=mongodb://… npm test   # gesamte Suite gegen echte MongoDB (je Harness eigene Test-DB, wird nachher gelöscht): 464 Tests
 ```
 
 Zusätzlich wurde der Ablauf im Browser (Chromium/Playwright) durchgespielt: Praxis stellt aus → Apotheke prüft, gleicht ab, löst ein →
 erneute Prüfung ist rot → Praxis sieht die Einlösung → Audit-Kette intakt → Nutzer anlegen und Zugang zurücksetzen.
+
+**Gegen echte MongoDB 7:** Die gesamte Backend-Suite (464 Tests inkl. 8 Store-Vertragstests) läuft grün gegen eine echte MongoDB 7. Indizes (u. a. eindeutige
+Seriennummer, `chain+seq` im Audit-Log, `tokenHash`) wurden in der laufenden Datenbank geprüft. In der Datenbank finden sich keine Klartext-Patientendaten
+(Suche nach Name, Medikament und Geburtsdatum in allen Collections: 0 Treffer).
+
+**Docker-Stack (Sandbox, erfundene Daten):** Images gebaut, Stack mit Mongo (Auth), Backend (nicht-root) und NGINX (TLS, Sicherheits-Header, HTTP→HTTPS, SPA-Fallback,
+Rate-Limit 429, Mongo nicht von außen erreichbar) gestartet; Neustart des Backends behält die Daten. Backup (`mongodump` + AES-256) und Restore in eine
+Nebendatenbank liefern identische Dokumentzahlen. Vollständiger Browser-Durchlauf über NGINX mit Pflicht-MFA ohne CSP-/JS-Fehler; beide Audit-Ketten intakt.
+**Einschränkung:** Sandbox mit selbstsigniertem Zertifikat und Sandbox-CA-Shim für den Image-Build – kein echter Server, kein Let's-Encrypt-Lauf.
+
+**QR-Code unabhängig gelesen:** Aus dem gerenderten PDF dekodiert ein unabhängiger Decoder (zxing-cpp) den Code korrekt, auch in 13 von 14 künstlich
+verschlechterten Varianten (Verkleinerung, Unschärfe, Rauschen, Kontrastverlust u. Ä.). Das ersetzt **keinen** Test mit echten Scannern und Handy-Kameras.
 
 **QR-Encoder:** eigene Implementierung, bitgenau gegen den unabhängigen Referenz-Encoder `reportlab` geprüft (Versionen 1–15, alle 8 Masken,
 minimale und maximale Nutzlast; Fixtures in `backend/src/lib/qr.fixtures.json`).
@@ -134,9 +146,9 @@ Fehler haben das Format `{ "error": { "code", "message" }, "requestId" }`. Eine 
 
 | # | Punkt | Warum |
 |---|---|---|
-| A1 | **MongoDB-Store gegen echte MongoDB testen** (`MONGODB_URI_TEST`) | Der Vertragstest läuft hier nur gegen den Speicher-Store. Der MongoDB-Zweig ist **nicht** gegen eine echte Datenbank geprüft |
-| A2 | **Docker-Stack auf einem Staging-Server in Betrieb nehmen** und die Prüfliste abarbeiten | Dockerfiles/Compose/NGINX/Backup konnten nicht ausgeführt werden |
-| A3 | **Praxistest mit echtem Drucker, Handy-Kamera und Apotheken-Scanner** | QR-Code ist gegen Referenz geprüft, aber nicht mit realen Lesegeräten; PDF417 fehlt |
+| A1 | ~~MongoDB-Store gegen echte MongoDB testen~~ **erledigt** (464 Tests gegen MongoDB 7, Indizes und Klartext-Freiheit geprüft) | Auf dem Zielserver mit der dort eingesetzten MongoDB-Version einmal wiederholen |
+| A2 | **Docker-Stack auf einem echten Staging-Server** in Betrieb nehmen (echtes Let's-Encrypt-Zertifikat, Firewall, Backup per Cron, Restore-Übung) | In der Sandbox bereits funktional geprüft (s. Kap. 5), aber nicht auf dem Zielserver |
+| A3 | **Praxistest mit echtem Drucker, Handy-Kamera und Apotheken-Scanner** | QR-Code ist gegen Referenz-Encoder und unabhängigen Decoder geprüft, aber nicht mit realen Lesegeräten/Druckern; PDF417 fehlt |
 | A4 | **Externer Penetrationstest** und Behebung der Befunde | Konzept: Pflicht vor Pilot |
 | A5 | **DSFA, Verzeichnis der Verarbeitungstätigkeiten, AVV, Datenschutzerklärung, AGB/SLA** | Rechtliche Voraussetzungen (Konzept Kap. 11/12); anwaltliche Prüfung |
 | A6 | **Rechtliche Klärung** Pflichtangaben, Gültigkeitsdauer (Platzhalter 28 Tage), Hybridmodell Papier+Code, Datenschutzrollen | Konzept ADR-06/ADR-11 |

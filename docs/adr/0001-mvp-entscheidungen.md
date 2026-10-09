@@ -9,9 +9,9 @@
 |---|---|---|
 | ADR-01 Produktfokus | Kern „Ausstellen – Prüfen – Einlösen – Nachweisen“ | Umgesetzt. Gestrichene/umgewidmete Anforderungen (Konzept 4.3) wurden nicht implementiert |
 | ADR-02 Frontend | React | Umgesetzt (React 19, Vite). Vue-Reste im Altbestand bleiben bis zur Bereinigung |
-| ADR-03 Datenbank | MongoDB, selbst betrieben in Deutschland | Store-Abstraktion mit MongoDB-Implementierung; **nicht gegen echte MongoDB getestet** (siehe MVP-Doku A1) |
+| ADR-03 Datenbank | MongoDB, selbst betrieben in Deutschland | Store-Abstraktion mit MongoDB-Implementierung; gegen echte MongoDB 7 getestet (464 Tests, siehe MVP-Doku A1) |
 | ADR-04 Rezeptcode | Signiert (Ed25519), ohne Patientendaten | Umgesetzt als kompakt-binärer Code (131 Zeichen); nur QR, kein PDF417; `iss` nicht im Code |
-| ADR-05 Deployment | Docker Compose, Server in Deutschland | Dateien vorhanden (`deploy/mvp`), **ungetestet** (kein Docker-Daemon in der Entwicklungsumgebung) |
+| ADR-05 Deployment | Docker Compose, Server in Deutschland | Dateien vorhanden (`deploy/mvp`), in Sandbox getestet, auf echtem Server noch offen (MVP-Doku A2) |
 | ADR-06 Hybridmodell Papier + Code | Papier mit Unterschrift bleibt maßgeblich | Umgesetzt (Druckbild mit Unterschriftsfeld); **rechtliche Bestätigung offen** |
 | ADR-07 Security-Karte | FIDO2 statt eigener Karte | **Nicht umgesetzt**; TOTP als Zwischenlösung |
 | ADR-08 Zahlungsdienstleister | Stripe als einziger PSP | Nicht Teil des MVP |

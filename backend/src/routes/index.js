@@ -25,11 +25,13 @@ function createRouter(ctx) {
   const verification = createVerificationService(ctx, notifications);
   const qs = createQsService(ctx, notifications);
 
-  const limiter = (windowMs, limit, keyGenerator) =>
+  const limiter = (windowMs, limit, keyGenerator, extra = {}) =>
     ctx.config.rateLimitEnabled
-      ? rateLimit({ windowMs, limit, standardHeaders: 'draft-7', legacyHeaders: false, ...(keyGenerator ? { keyGenerator } : {}), message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Zu viele Anfragen. Bitte später erneut versuchen.' } } })
+      ? rateLimit({ windowMs, limit, standardHeaders: 'draft-7', legacyHeaders: false, ...extra, ...(keyGenerator ? { keyGenerator } : {}), message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Zu viele Anfragen. Bitte später erneut versuchen.' } } })
       : (_req, _res, next) => next();
-  const loginLimiter = limiter(15 * 60 * 1000, 20);
+  // Nur Fehlversuche zählen: Praxen/Apotheken teilen sich oft eine IP (NAT), reguläre Anmeldungen und
+  // Token-Erneuerungen mehrerer Personen dürfen das Limit nicht aufbrauchen.
+  const loginLimiter = limiter(15 * 60 * 1000, 20, undefined, { skipSuccessfulRequests: true });
   const perUser = limiter(60 * 1000, 120, (req) => (req.auth ? req.auth.user._id : 'anon'));
 
   const practiceStaff = [ROLES.PRESCRIBER, ROLES.PRACTICE_STAFF];

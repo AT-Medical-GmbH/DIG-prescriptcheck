@@ -8,15 +8,34 @@ const request = require('supertest');
 const { randomUUID } = require('crypto');
 const { loadConfig } = require('../config');
 const { MemoryStore } = require('../store/memory');
+const { MongoStore } = require('../store/mongo');
 const { createContext } = require('../context');
 const { createApp } = require('../app');
 const { hashPassword } = require('../lib/password');
 
 const PASSWORD = 'Test-Passwort-2026';
+let harnessCounter = 0;
+const createdStores = [];
+
+// Aufräumen: Test-Datenbanken löschen und Verbindungen schließen
+afterAll(async () => {
+  for (const s of createdStores.splice(0)) {
+    try { await s.db.dropDatabase(); await s.close(); } catch { /* bereits geschlossen */ }
+  }
+});
 
 async function createHarness(envOverrides = {}) {
   const config = loadConfig({ NODE_ENV: 'test', PASSWORD_SCRYPT_N: '1024', RATE_LIMIT: 'false', REQUIRE_MFA: 'false', ...envOverrides }, { warn() {} });
-  const store = new MemoryStore();
+  // Mit MONGODB_URI_TEST läuft die gesamte Testsuite gegen eine echte MongoDB (je Harness eigene Datenbank, siehe README)
+  let store;
+  if (process.env.MONGODB_URI_TEST) {
+    const base = process.env.MONGODB_URI_TEST.replace(/\/[^/?]*(\?|$)/, '/');
+    store = new MongoStore(`${base}pc_t_${process.pid}_${++harnessCounter}${process.env.MONGODB_URI_TEST.includes('?') ? process.env.MONGODB_URI_TEST.slice(process.env.MONGODB_URI_TEST.indexOf('?')) : ''}`);
+    await store.connect();
+    createdStores.push(store);
+  } else {
+    store = new MemoryStore();
+  }
   await store.init();
   const clock = { t: Date.UTC(2026, 9, 9, 10, 0, 0), now() { return this.t; }, advance(ms) { this.t += ms; } };
   const ctx = createContext({ config, store, now: () => clock.now() });
