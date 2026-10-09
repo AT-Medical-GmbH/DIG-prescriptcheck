@@ -1,15 +1,15 @@
 {
   "name": "prescriptcheck-frontend",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "PrescriptCheck Frontend – Healthcare Prescription Validation UI",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "test": "echo 'No frontend tests configured yet' && exit 0",
-    "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
+    "preview": "vite preview --host",
+    "lint": "eslint app vite.config.js",
+    "test": "node --test \"app/**/*.test.js\""
   },
   "dependencies": {
     "react": "^19.2.4",
@@ -22,7 +22,7 @@
     "vite": "^8.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "license": "SEE LICENSE IN ../../LICENSE_COMMERCIAL.md"
 }
