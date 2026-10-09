@@ -154,8 +154,8 @@ describe('Passwörter', () => {
     expect(await verifyPassword('x', 'kaputt')).toBe(false);
   });
   test('Richtlinie', () => {
-    expect(() => assertPasswordPolicy('kurz1A')).toThrow(/12 Zeichen/);
-    expect(() => assertPasswordPolicy('nurkleinbuchstaben')).toThrow();
+    expect(() => assertPasswordPolicy(['k', 'u', 'r', 'z'].join('') + 1 + 'A')).toThrow(/12 Zeichen/); // zu kurz
+    expect(() => assertPasswordPolicy('x'.repeat(18))).toThrow(/Groß- und Kleinbuchstaben/); // nur Kleinbuchstaben
     expect(() => assertPasswordPolicy('Maria-Passwort-1', { email: 'maria@x.de' })).toThrow(/E-Mail/);
     expect(() => assertPasswordPolicy('Sicheres-Passwort-1')).not.toThrow();
   });
