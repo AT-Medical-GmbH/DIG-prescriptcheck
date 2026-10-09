@@ -1,15 +1,16 @@
 {
   "name": "prescriptcheck-backend",
-  "version": "1.0.0",
-  "description": "PrescriptCheck Backend – Healthcare Prescription Validation Platform",
-  "main": "index.js",
+  "version": "0.3.0",
+  "description": "PrescriptCheck Backend – Ausstellung, Prüfung und Einlösung von Privatrezepten (MVP)",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "jest --forceExit --testTimeout=10000",
-    "test:coverage": "jest --coverage --forceExit --testTimeout=10000",
-    "lint": "eslint . --ext .js --ignore-pattern node_modules/",
-    "lint:fix": "eslint . --ext .js --fix --ignore-pattern node_modules/"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --forceExit",
+    "test:coverage": "jest --coverage --forceExit",
+    "keys": "node src/scripts/generateSecrets.js",
+    "admin:create": "node src/scripts/createPlatformAdmin.js",
+    "seed:demo": "node src/scripts/seedDemo.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -33,26 +34,21 @@
   "jest": {
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/tests",
-      "<rootDir>/../src/backend/tests",
-      "<rootDir>/../tests"
+      "<rootDir>/src"
     ],
     "testMatch": [
-      "**/*.test.js",
-      "**/*Test.js"
+      "**/*.spec.js"
     ],
     "collectCoverageFrom": [
-      "<rootDir>/controllers/**/*.js",
-      "<rootDir>/middleware/**/*.js",
-      "<rootDir>/models/**/*.js",
-      "<rootDir>/routes/**/*.js",
-      "<rootDir>/services/**/*.js",
-      "<rootDir>/utils/**/*.js",
-      "<rootDir>/../src/backend/**/*.js"
-    ]
+      "src/**/*.js",
+      "!src/**/*.spec.js",
+      "!src/scripts/**",
+      "!src/server.js"
+    ],
+    "testTimeout": 20000
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "license": "SEE LICENSE IN ../LICENSE_COMMERCIAL.md"
 }
