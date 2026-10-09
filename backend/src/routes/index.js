@@ -71,6 +71,7 @@ function createRouter(ctx) {
   router.post('/admin/users', authenticate, requireRole(ROLES.PLATFORM_ADMIN), async (req, res) => res.status(201).json(await admin.createUser(user(req), req.body, meta(req))));
   router.get('/org/users', authenticate, requireRole(ROLES.PRACTICE_ADMIN, ROLES.PHARMACY_ADMIN), async (req, res) => res.json(await admin.listUsers(user(req))));
   router.post('/org/users', authenticate, requireRole(ROLES.PRACTICE_ADMIN, ROLES.PHARMACY_ADMIN), async (req, res) => res.status(201).json(await admin.createUser(user(req), req.body, meta(req))));
+  router.post('/users/:id/reset-credentials', authenticate, requireRole(ROLES.PLATFORM_ADMIN, ROLES.PRACTICE_ADMIN, ROLES.PHARMACY_ADMIN), async (req, res) => res.json(await admin.resetCredentials(user(req), req.params.id, req.body, meta(req))));
   router.patch('/users/:id/status', authenticate, requireRole(ROLES.PLATFORM_ADMIN, ROLES.PRACTICE_ADMIN, ROLES.PHARMACY_ADMIN), async (req, res) => res.json(await admin.setUserStatus(user(req), req.params.id, req.body, meta(req))));
 
   // ---------- Praxis: Rezepte ----------

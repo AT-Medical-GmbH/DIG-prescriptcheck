@@ -103,7 +103,32 @@ function createAdminService(ctx) {
     return { id, status };
   }
 
-  return { createOrganization, listOrganizations, setOrganizationStatus, createUser, listUsers, setUserStatus, PRACTICE_ROLES, PHARMACY_ROLES };
+  /**
+   * Zugang wiederherstellen (Passwort vergessen / Authenticator-Gerät verloren).
+   * Setzt ein neues Einmalpasswort (Wechsel Pflicht), beendet alle Sitzungen und hebt Sperren auf;
+   * optional wird die Zwei-Faktor-Authentifizierung zurückgesetzt (Neueinrichtung Pflicht).
+   * Berechtigt: Plattform-Admin (alle) und Organisations-Admins (eigene Organisation).
+   */
+  async function resetCredentials(actor, id, body = {}, meta = {}) {
+    const resetMfa = !!(body && body.resetMfa);
+    const target = await users.findOne({ _id: id });
+    const allowed = target && (actor.role === ROLES.PLATFORM_ADMIN || (target.orgId && target.orgId === actor.orgId));
+    if (!allowed) throw notFound('USER_NOT_FOUND', 'Nutzer nicht gefunden.');
+    if (target._id === actor._id) throw badRequest('SELF_CHANGE', 'Für das eigene Konto bitte „Passwort ändern“ verwenden.');
+    if (target.role === ROLES.PLATFORM_ADMIN && actor.role !== ROLES.PLATFORM_ADMIN) throw forbidden();
+    const password = generatePassword();
+    await users.updateOne({ _id: id }, {
+      $set: {
+        passwordHash: await hashPassword(password, ctx.config.scryptN), mustChangePassword: true, failedLogins: 0, lockedUntil: 0,
+        ...(resetMfa ? { mfaEnabled: false, mfaSecretEnc: null, pendingMfaSecretEnc: null, lastTotpStep: 0 } : {}),
+      },
+    });
+    for (const sess of await ctx.col('sessions').find({ userId: id, revokedAt: null })) await ctx.col('sessions').updateOne({ _id: sess._id }, { $set: { revokedAt: ctx.now() } });
+    await ctx.audit.record({ chains: [chainOf(target)], actor: { userId: actor._id, role: actor.role, orgId: actor.orgId }, action: 'CREDENTIALS_RESET', object: { type: 'user', id }, detail: { resetMfa }, ip: meta.ip, requestId: meta.requestId });
+    return { id, initialPassword: password, mfaReset: resetMfa };
+  }
+
+  return { createOrganization, listOrganizations, setOrganizationStatus, createUser, listUsers, setUserStatus, resetCredentials, PRACTICE_ROLES, PHARMACY_ROLES };
 }
 
 module.exports = { createAdminService };

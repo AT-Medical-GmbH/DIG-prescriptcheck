@@ -9,6 +9,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- **MVP „Verify“** (Konzept Phase 1), siehe `docs/mvp/README.md`: Ausstellen, Drucken, Prüfen, Identitätsabgleich und Einlösung von Privatrezepten
+  - Backend `backend/src`: Ed25519-signierter Rezeptcode ohne Patientendaten, eigener QR-Encoder (gegen Referenz geprüft) und PDF-Writer, Zustandsmaschine,
+    atomare Einlösung, Feldverschlüsselung je Mandant, HMAC-verkettetes Audit-Log, Login mit Sperre/Refresh-Rotation/TOTP, Rechtematrix, Mandantentrennung
+  - Frontend `frontend/app` (React/Vite): Praxis-, Apotheken-, QS-, Verwaltungs- und Audit-Ansichten
+  - Betrieb `deploy/mvp`: Docker-Compose-Stack, NGINX, Backup-Skript, Server-Anleitung (**ungetestet**)
+  - Tests: 455 Backend-Tests, 4 Frontend-Tests
+- `docs/konzept/PrescriptCheck_Gesamtkonzept.md` – Gesamtkonzept; `docs/adr/0001-mvp-entscheidungen.md`
+
+### Added (Governance, zuvor)
 - Enterprise metadata: `metadata/repository-profile.yml` with ATMED governance tags
 - `LICENSE` root file referencing `LICENSE_COMMERCIAL.md`
 - `.github/dependabot.yml` for automated dependency security updates

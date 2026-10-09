@@ -26,6 +26,7 @@ const MATRIX = [
   ['get', '/org/users', ['PRACTICE_ADMIN', 'PHARMACY_ADMIN']],
   ['post', '/org/users', ['PRACTICE_ADMIN', 'PHARMACY_ADMIN']],
   ['patch', '/users/x/status', ['PLATFORM_ADMIN', 'PRACTICE_ADMIN', 'PHARMACY_ADMIN']],
+  ['post', '/users/x/reset-credentials', ['PLATFORM_ADMIN', 'PRACTICE_ADMIN', 'PHARMACY_ADMIN']],
   ['get', '/prescriptions', PRACTICE],
   ['post', '/prescriptions', PRACTICE],
   ['post', '/prescriptions/block-bulk', ['PRESCRIBER']],
@@ -147,6 +148,37 @@ describe('Verwaltung', () => {
     expect((await pa.patch(`/users/${self}/status`).send({ status: 'DISABLED' })).status).toBe(400);
     const mine = (await h.ctx.col('users').findOne({ email: 'arzt2@test.de' }))._id;
     expect((await pa.patch(`/users/${mine}/status`).send({ status: 'DISABLED' })).body.status).toBe('DISABLED');
+  });
+
+  test('Zugang zurücksetzen: neues Einmalpasswort, Sitzungen enden, Sperre und MFA werden zurückgesetzt', async () => {
+    const pa = await h.as('praxisadmin@test.de');
+    const arzt = await h.as('arzt@test.de');
+    const doc = await h.ctx.col('users').findOne({ email: 'arzt@test.de' });
+    await h.ctx.col('users').updateOne({ _id: doc._id }, { $set: { mfaEnabled: true, mfaSecretEnc: 'x', failedLogins: 3, lockedUntil: h.clock.now() + 1e6 } });
+
+    const res = await pa.post(`/users/${doc._id}/reset-credentials`).send({ resetMfa: true });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ mfaReset: true });
+    expect(res.body.initialPassword).toHaveLength(16);
+    expect((await arzt.get('/prescriptions')).status).toBe(401); // alte Sitzung beendet
+    expect((await h.login('arzt@test.de', PASSWORD)).status).toBe(401); // altes Passwort ungültig
+    const login = await h.login('arzt@test.de', res.body.initialPassword);
+    expect(login.status).toBe(200);
+    expect(login.body.user).toMatchObject({ mfaEnabled: false, mustChangePassword: true });
+    const gated = await h.request().get('/api/v1/prescriptions').set('Authorization', `Bearer ${login.body.accessToken}`);
+    expect(gated.body.error.code).toBe('PASSWORD_CHANGE_REQUIRED');
+    const entries = (await pa.get('/audit?limit=100')).body.entries;
+    expect(entries.find((e) => e.action === 'CREDENTIALS_RESET')).toMatchObject({ detail: { resetMfa: true } });
+    expect(JSON.stringify(entries)).not.toContain(res.body.initialPassword);
+
+    // Grenzen: fremde Organisation, eigenes Konto, Plattform-Admin-Konten
+    const fremd = await h.ctx.col('users').findOne({ email: 'arzt-b@test.de' });
+    expect((await pa.post(`/users/${fremd._id}/reset-credentials`).send({})).status).toBe(404);
+    const self = await h.ctx.col('users').findOne({ email: 'praxisadmin@test.de' });
+    expect((await pa.post(`/users/${self._id}/reset-credentials`).send({})).status).toBe(400);
+    const platform = await h.ctx.col('users').findOne({ email: 'admin@test.de' });
+    expect((await pa.post(`/users/${platform._id}/reset-credentials`).send({})).status).toBe(404);
+    expect((await admin.post(`/users/${fremd._id}/reset-credentials`).send({})).status).toBe(200);
   });
 
   test('Plattform-Admin hat keinen Zugriff auf Rezeptinhalte; Audit-Zugriff nur nach Rolle', async () => {
