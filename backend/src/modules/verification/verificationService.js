@@ -213,11 +213,15 @@ function createVerificationService(ctx, notifications) {
     const ver = await loadVerification(actor, body.verificationId);
     const rx = await rxs.findOne({ _id: ver.rxId });
     if (!rx) throw notFound('RX_NOT_FOUND', 'Rezept nicht gefunden.');
+    const flag = { type: 'PHARMACY_REPORT', category, note: note || null, at: ctx.now(), orgId: actor.orgId };
     const r = await rxs.updateOne({ _id: rx._id, state: STATES.ISSUED }, {
       $set: { state: STATES.BLOCKED, blockedBy: 'QS', blockReason: 'SUSPICION', blockedAt: ctx.now(), updatedAt: ctx.now() },
       $inc: { version: 1 },
-      $push: { qsFlags: { type: 'PHARMACY_REPORT', category, note: note || null, at: ctx.now(), orgId: actor.orgId } },
+      $push: { qsFlags: flag },
     });
+    // Die Meldung geht nie verloren: Ist das Rezept inzwischen nicht mehr ISSUED (z. B. eingelöst oder
+    // bereits gesperrt), wird der Hinweis trotzdem für die QS vermerkt, ohne den Zustand zu ändern.
+    if (r.modifiedCount !== 1) await rxs.updateOne({ _id: rx._id }, { $push: { qsFlags: flag } });
     await ctx.audit.record({ chains: [actor.orgId, rx.practiceOrgId, 'platform'], actor: actorOf(actor), action: 'QS_REPORT', object: { type: 'prescription', id: rx._id, serial: rx.serial }, detail: { category, blocked: r.modifiedCount === 1 }, ip: meta.ip, requestId: meta.requestId });
     await notifications.create(rx.practiceOrgId, { type: 'QS_REPORT', serial: rx.serial, message: `Rezept ${rx.serial} wurde von einer Apotheke als verdächtig gemeldet${r.modifiedCount === 1 ? ' und gesperrt' : ''}. Die Qualitätssicherung prüft den Fall.` });
     return { serial: rx.serial, blocked: r.modifiedCount === 1 };

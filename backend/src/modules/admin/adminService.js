@@ -9,7 +9,7 @@ const { publicUser, chainOf } = require('../auth/authService');
 
 const orgView = (o) => ({ id: o._id, type: o.type, name: o.name, address: o.address || {}, status: o.status, verifiedAt: o.verifiedAt, createdAt: o.createdAt });
 
-function createAdminService(ctx) {
+function createAdminService(ctx, notifications) {
   const orgs = ctx.col('organizations');
   const users = ctx.col('users');
 
@@ -116,6 +116,9 @@ function createAdminService(ctx) {
     if (!allowed) throw notFound('USER_NOT_FOUND', 'Nutzer nicht gefunden.');
     if (target._id === actor._id) throw badRequest('SELF_CHANGE', 'Für das eigene Konto bitte „Passwort ändern“ verwenden.');
     if (target.role === ROLES.PLATFORM_ADMIN && actor.role !== ROLES.PLATFORM_ADMIN) throw forbidden();
+    // Plattform-Konten (Admin, QS, Audit) werden nicht per API zurückgesetzt: ein einzelner kompromittierter
+    // Plattform-Admin könnte sonst die Kontrollinstanzen (QS/Audit) übernehmen. Das geschieht im Betrieb (CLI, Vier-Augen).
+    if (!target.orgId) throw forbidden('PLATFORM_ACCOUNT', 'Plattform-Konten können nicht über die Verwaltungsoberfläche zurückgesetzt werden.');
     const password = generatePassword();
     await users.updateOne({ _id: id }, {
       $set: {
@@ -125,6 +128,10 @@ function createAdminService(ctx) {
     });
     for (const sess of await ctx.col('sessions').find({ userId: id, revokedAt: null })) await ctx.col('sessions').updateOne({ _id: sess._id }, { $set: { revokedAt: ctx.now() } });
     await ctx.audit.record({ chains: [chainOf(target)], actor: { userId: actor._id, role: actor.role, orgId: actor.orgId }, action: 'CREDENTIALS_RESET', object: { type: 'user', id }, detail: { resetMfa }, ip: meta.ip, requestId: meta.requestId });
+    // Die Organisation erfährt von jedem Zugriff der Plattform auf ihre Konten.
+    if (!actor.orgId && target.orgId && notifications) {
+      await notifications.create(target.orgId, { type: 'CREDENTIALS_RESET', message: `Die Zugangsdaten eines Kontos Ihrer Organisation (${target.name}) wurden durch die Plattformverwaltung zurückgesetzt${resetMfa ? ' (inkl. Zwei-Faktor-Authentifizierung)' : ''}.` });
+    }
     return { id, initialPassword: password, mfaReset: resetMfa };
   }
 

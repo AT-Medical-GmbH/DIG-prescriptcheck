@@ -19,8 +19,8 @@ function createRouter(ctx) {
   const router = express.Router();
   const { authenticate, authenticateSetup } = createAuthMiddleware(ctx);
   const auth = createAuthService(ctx);
-  const admin = createAdminService(ctx);
   const notifications = createNotificationService(ctx);
+  const admin = createAdminService(ctx, notifications);
   const rx = createPrescriptionService(ctx);
   const verification = createVerificationService(ctx, notifications);
   const qs = createQsService(ctx, notifications);
@@ -33,6 +33,8 @@ function createRouter(ctx) {
   // Token-Erneuerungen mehrerer Personen dürfen das Limit nicht aufbrauchen.
   const loginLimiter = limiter(15 * 60 * 1000, 20, undefined, { skipSuccessfulRequests: true });
   const perUser = limiter(60 * 1000, 120, (req) => (req.auth ? req.auth.user._id : 'anon'));
+  // Kontoeinrichtung (Passwort/MFA) ist mit gestohlenem Token sonst unbegrenzt durchprobierbar.
+  const setupLimiter = limiter(15 * 60 * 1000, 20, (req) => (req.auth ? req.auth.user._id : 'anon'));
 
   const practiceStaff = [ROLES.PRESCRIBER, ROLES.PRACTICE_STAFF];
   const pharmacyStaff = [ROLES.PHARMACIST, ROLES.PHARMACY_STAFF];
@@ -53,14 +55,14 @@ function createRouter(ctx) {
     res.status(204).end();
   });
   router.get('/auth/me', authenticateSetup, (req, res) => res.json({ user: auth.publicUser(user(req), req.auth.org), mfaRequired: ctx.config.requireMfa }));
-  router.post('/auth/change-password', authenticateSetup, async (req, res) => {
+  router.post('/auth/change-password', authenticateSetup, setupLimiter, async (req, res) => {
     const b = v.obj(req.body);
     if (typeof b.currentPassword !== 'string' || typeof b.newPassword !== 'string') throw badRequest('VALIDATION_ERROR', 'Passwörter erforderlich');
     await auth.changePassword(user(req), req.auth.session._id, b, meta(req));
     res.status(204).end();
   });
-  router.post('/auth/mfa/enroll', authenticateSetup, async (req, res) => res.json(await auth.mfaEnroll(user(req))));
-  router.post('/auth/mfa/confirm', authenticateSetup, async (req, res) => {
+  router.post('/auth/mfa/enroll', authenticateSetup, setupLimiter, async (req, res) => res.json(await auth.mfaEnroll(user(req))));
+  router.post('/auth/mfa/confirm', authenticateSetup, setupLimiter, async (req, res) => {
     await auth.mfaConfirm(user(req), v.str(v.obj(req.body).code, 'code', { max: 10 }), meta(req));
     res.status(204).end();
   });

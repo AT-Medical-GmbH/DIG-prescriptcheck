@@ -5,8 +5,24 @@
 limit_req_zone $binary_remote_addr zone=login:10m rate=30r/m;
 limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
 
+# Access-Log ohne Query-String und Referer: Suchbegriffe (z. B. Patientennamen in ?q=) dürfen nie im Log landen.
+log_format pc '$remote_addr [$time_iso8601] "$request_method $uri" $status $body_bytes_sent rid=$request_id';
+access_log /var/log/nginx/access.log pc;
+
 server_tokens off;
 limit_req_status 429;   # Rate-Limit antwortet mit 429 statt dem Standardwert 503
+
+# Anfragen mit fremdem/ohne Host-Namen (IP-Scans, falsche Domains) werden ohne Antwort verworfen
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
 
 server {
     listen 80;
@@ -65,6 +81,7 @@ server {
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
         add_header X-Content-Type-Options "nosniff" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
     location / {
         try_files $uri /index.html;

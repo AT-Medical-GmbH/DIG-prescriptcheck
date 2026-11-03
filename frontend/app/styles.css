@@ -55,6 +55,7 @@ fieldset.item { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 1
 .btn:hover:not(:disabled) { border-color: var(--primary); } .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn-primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
 .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+@media (prefers-color-scheme: dark) { .btn-danger { color: #2a0a0a; } }
 .btn-danger-outline { color: var(--red); border-color: var(--red); background: transparent; }
 .btn-small { padding: .3rem .6rem; font-size: .85rem; } .btn-big { padding: .8rem 1.4rem; font-size: 1.1rem; }
 .link { background: none; border: none; color: var(--primary); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; } @media (prefers-color-scheme: dark) { .link { color: var(--accent); } }
