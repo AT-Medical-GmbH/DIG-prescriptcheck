@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useRef, useState } from 'react';
 import { STATE_LABELS } from './format.js';
 
 export function Logo({ size = 28 }) {
@@ -53,25 +53,58 @@ export function Empty({ children }) {
 
 /** Bestätigungsdialog (kein window.confirm: barrierearm, testbar). */
 export function ConfirmDialog({ title, children, confirmLabel = 'Bestätigen', danger, onConfirm, onCancel, busy }) {
-  const ref = useRef(null);
-  useEffect(() => { ref.current?.focus(); }, []);
+  const dialogRef = useRef(null);
+  const confirmRef = useRef(null);
+  const cancelRef = useRef(null);
+  useEffect(() => {
+    const before = document.activeElement;
+    // Fokus: zuerst auf das erste Eingabefeld, sonst bei riskanten Aktionen auf „Abbrechen“, sonst auf die Bestätigung
+    const field = dialogRef.current?.querySelector('input:not([type=hidden]), select, textarea');
+    (field || (danger ? cancelRef.current : confirmRef.current))?.focus();
+    return () => { if (before && typeof before.focus === 'function') before.focus(); };
+  }, []);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
+  // Als Formular: Pflichtfelder (required) werden geprüft, Enter bestätigt.
+  const submit = (e) => { e.preventDefault(); if (!busy) onConfirm(); };
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <form ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-label={title} onSubmit={submit}>
         <h3>{title}</h3>
         <div className="modal-body">{children}</div>
         <div className="row end">
-          <button type="button" className="btn" onClick={onCancel} disabled={busy}>Abbrechen</button>
-          <button type="button" ref={ref} className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm} disabled={busy}>{busy ? 'Bitte warten …' : confirmLabel}</button>
+          <button type="button" ref={cancelRef} className="btn" onClick={onCancel} disabled={busy}>Abbrechen</button>
+          <button type="submit" ref={confirmRef} className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} disabled={busy}>{busy ? 'Bitte warten …' : confirmLabel}</button>
         </div>
-      </div>
+      </form>
     </div>
   );
+}
+
+/** Fängt Darstellungsfehler ab, damit nie ein leerer Bildschirm bleibt. */
+export class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <main className="card login" role="alert">
+        <h1>Etwas ist schiefgelaufen</h1>
+        <p>Die Anzeige konnte nicht aufgebaut werden. Ihre Daten sind nicht verloren gegangen.</p>
+        <p><button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>Seite neu laden</button></p>
+      </main>
+    );
+  }
 }
 
 /** Kleiner Hook für asynchrone Aktionen mit Lade-/Fehlerzustand. */

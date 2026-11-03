@@ -27,7 +27,7 @@ export default function Redemptions() {
       <p className="muted">Zum Schutz der Patientendaten werden hier keine Patienteninformationen angezeigt. Eine Einlösung kann nur in den ersten 15 Minuten storniert werden.</p>
       <Alert kind="ok" onClose={() => setMsg('')}>{msg}</Alert>
       <Alert>{list.error}</Alert>
-      {list.loading ? <Spinner /> : list.data.length === 0 ? <Empty>Noch keine Einlösungen.</Empty> : (
+      {list.loading ? <Spinner /> : !list.data ? null : list.data.length === 0 ? <Empty>Noch keine Einlösungen.</Empty> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Rezept-ID</th><th>Eingelöst am</th><th>Abholung durch</th><th /></tr></thead>
@@ -45,7 +45,7 @@ export default function Redemptions() {
       {target && (
         <ConfirmDialog title="Einlösung stornieren?" confirmLabel="Stornieren" danger busy={busy} onCancel={() => setTarget(null)} onConfirm={cancel}>
           <p>Rezept <span className="mono">{target}</span> wird wieder einlösbar. Die Praxis wird informiert.</p>
-          <Field label="Begründung (Pflicht)" htmlFor="why"><input id="why" required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus /></Field>
+          <Field label="Begründung (Pflicht)" htmlFor="why" hint="Bitte keine Patientendaten eintragen."><input id="why" required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus /></Field>
           <Alert>{error}</Alert>
         </ConfirmDialog>
       )}

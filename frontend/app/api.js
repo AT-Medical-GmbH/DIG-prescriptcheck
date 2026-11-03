@@ -67,13 +67,28 @@ async function send(method, path, body, retry = true) {
   return res;
 }
 
+/** Verständliche Meldung, wenn die Antwort kein API-Fehlerobjekt ist (z. B. Proxy-Fehlerseite, Netzausfall). */
+function statusMessage(status) {
+  if (status === 429) return 'Zu viele Anfragen. Bitte einen Moment warten.';
+  if (status === 502 || status === 503 || status === 504) return 'Der Dienst ist vorübergehend nicht erreichbar. Bitte später erneut versuchen.';
+  if (status === 413) return 'Die Anfrage ist zu groß.';
+  if (status >= 500) return 'Auf dem Server ist ein Fehler aufgetreten. Bitte später erneut versuchen.';
+  return 'Unerwarteter Fehler.';
+}
+
 async function json(method, path, body) {
-  const res = await send(method, path, body);
+  let res;
+  try {
+    res = await send(method, path, body);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(0, 'NETWORK', 'Keine Verbindung zum Server. Bitte Netzwerk prüfen und erneut versuchen.');
+  }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data && data.error;
-    throw new ApiError(res.status, e ? e.code : 'ERROR', e ? e.message : 'Unerwarteter Fehler.', e && e.details);
+    throw new ApiError(res.status, e ? e.code : 'ERROR', e ? e.message : statusMessage(res.status), e && e.details);
   }
   return data;
 }
@@ -90,9 +105,11 @@ export const api = {
       const res = await send('GET', path);
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new ApiError(res.status, data?.error?.code, data?.error?.message || 'PDF nicht verfügbar.');
+        throw new ApiError(res.status, data?.error?.code, data?.error?.message || statusMessage(res.status));
       }
-      const url = URL.createObjectURL(await res.blob());
+      const blob = await res.blob();
+      if (!(res.headers.get('content-type') || '').startsWith('application/pdf')) throw new ApiError(res.status, 'NOT_PDF', 'Das PDF konnte nicht erzeugt werden.');
+      const url = URL.createObjectURL(blob);
       if (win) win.location.href = url;
       else window.location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);

@@ -22,7 +22,7 @@ export default function QsCases() {
       <p className="muted">Gemeldete und auffällige Rezepte. Aus Datenschutzgründen sind Patienten- und Verordnungsdaten für die QS nicht sichtbar – Klärungen erfolgen mit der ausstellenden Praxis.</p>
       <Alert kind="ok" onClose={() => setMsg('')}>{msg}</Alert>
       <Alert>{list.error}</Alert>
-      {list.loading ? <Spinner /> : list.data.length === 0 ? <Empty>Keine offenen Fälle.</Empty> : (
+      {list.loading ? <Spinner /> : !list.data ? null : list.data.length === 0 ? <Empty>Keine offenen Fälle.</Empty> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Rezept-ID</th><th>Praxis</th><th>Status</th><th>Hinweise</th><th>Gesperrt am</th><th /></tr></thead>
@@ -41,7 +41,7 @@ export default function QsCases() {
       {target && (
         <ConfirmDialog title="QS-Sperre aufheben?" confirmLabel="Sperre aufheben" busy={busy} onCancel={() => setTarget(null)} onConfirm={unblock}>
           <p>Rezept <span className="mono">{target}</span> wird wieder einlösbar. Nur nach Rücksprache mit der Praxis.</p>
-          <Field label="Begründung (Pflicht)" htmlFor="why"><input id="why" required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus /></Field>
+          <Field label="Begründung (Pflicht)" htmlFor="why" hint="Bitte keine Patientendaten eintragen."><input id="why" required maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus /></Field>
           <Alert>{error}</Alert>
         </ConfirmDialog>
       )}

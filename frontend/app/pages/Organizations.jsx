@@ -40,7 +40,7 @@ export default function Organizations() {
         </div>
         <button className="btn btn-primary" disabled={busy}>Anlegen</button>
       </form>
-      {list.loading ? <Spinner /> : list.data.length === 0 ? <Empty>Noch keine Organisationen.</Empty> : (
+      {list.loading ? <Spinner /> : !list.data ? null : list.data.length === 0 ? <Empty>Noch keine Organisationen.</Empty> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Typ</th><th>Ort</th><th>Status</th><th>Angelegt</th><th /></tr></thead>
