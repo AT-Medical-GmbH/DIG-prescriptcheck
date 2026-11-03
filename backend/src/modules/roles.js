@@ -5,7 +5,7 @@
  * anderen sind genau einer Praxis oder Apotheke zugeordnet.
  */
 const ROLES = Object.freeze({
-  PLATFORM_ADMIN: 'PLATFORM_ADMIN', // Organisationen/Nutzer verwalten – KEIN Zugriff auf Rezeptinhalte
+  PLATFORM_ADMIN: 'PLATFORM_ADMIN', // Organisationen/Nutzer verwalten; kein fachlicher Zugriff auf Rezeptinhalte (Inhalte sind je Org verschlüsselt, der Dienst entschlüsselt nur für die berechtigte Rolle)
   SUPERVISOR: 'SUPERVISOR', // QS: gemeldete/gesperrte Rezepte bearbeiten (ohne Inhalte)
   AUDITOR: 'AUDITOR', // lesend: Audit-Trail
   PRACTICE_ADMIN: 'PRACTICE_ADMIN',

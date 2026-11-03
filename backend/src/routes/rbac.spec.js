@@ -261,7 +261,7 @@ describe('Konfiguration', () => {
   test('gültige Produktionskonfiguration, MFA standardmäßig Pflicht', () => {
     const crypto = require('crypto');
     const pem = crypto.generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' });
-    const cfg = loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), MASTER_KEY: crypto.randomBytes(32).toString('base64'), SIGNING_PRIVATE_KEY: Buffer.from(pem).toString('base64'), MONGODB_URI: 'mongodb://x' });
+    const cfg = loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), MASTER_KEY: crypto.randomBytes(32).toString('base64'), SIGNING_PRIVATE_KEY: Buffer.from(pem).toString('base64'), MONGODB_URI: 'mongodb://x', TRUST_PROXY: '1' });
     expect(cfg).toMatchObject({ production: true, requireMfa: true, storeType: 'mongo' });
     expect(() => loadConfig({ NODE_ENV: 'production', SEED_DEMO: 'true', JWT_SECRET: 'x'.repeat(40), MASTER_KEY: crypto.randomBytes(32).toString('base64'), SIGNING_PRIVATE_KEY: pem, MONGODB_URI: 'mongodb://x' })).toThrow(/SEED_DEMO/);
   });

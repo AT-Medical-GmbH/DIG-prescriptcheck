@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
 const { Keyring } = require('../lib/signing');
 
 const bool = (v, def) => (v === undefined || v === '' ? def : ['1', 'true', 'yes'].includes(String(v).toLowerCase()));
@@ -10,15 +11,43 @@ function parsePrivateKey(raw) {
   return crypto.createPrivateKey(pem);
 }
 
+const FILE_SECRETS = ['JWT_SECRET', 'MASTER_KEY', 'SIGNING_PRIVATE_KEY', 'SIGNING_PUBLIC_KEYS_JSON', 'MONGODB_URI'];
+
+/** Geheimnisse dürfen statt per Umgebungsvariable als Datei (Docker/Kubernetes Secrets, NAME_FILE) übergeben werden. */
+function withFileSecrets(env, problems) {
+  const out = { ...env };
+  for (const name of FILE_SECRETS) {
+    const file = env[`${name}_FILE`];
+    if (!file) continue;
+    if (env[name]) problems.push(`${name} und ${name}_FILE sind gleichzeitig gesetzt`);
+    try {
+      out[name] = fs.readFileSync(file, 'utf8').trim();
+    } catch (e) {
+      problems.push(`${name}_FILE nicht lesbar (${e.code || 'Fehler'})`);
+    }
+  }
+  return out;
+}
+
+/** TRUST_PROXY: Zahl (Anzahl Proxys), true/false oder Liste vertrauenswürdiger Adressen/Subnetze. */
+function parseTrustProxy(raw) {
+  if (raw === undefined || raw === '') return false;
+  if (/^\d+$/.test(raw)) return Number(raw) || false;
+  if (['true', 'yes'].includes(raw.toLowerCase())) return true;
+  if (['false', 'no'].includes(raw.toLowerCase())) return false;
+  return raw;
+}
+
 /**
  * Lädt und validiert die Konfiguration. In Produktion sind Geheimnisse Pflicht
  * und werden nie automatisch erzeugt; außerhalb von Produktion werden fehlende
  * Geheimnisse flüchtig erzeugt (Daten/Tokens überleben dann keinen Neustart).
  */
-function loadConfig(env = process.env, log = { warn() {} }) {
+function loadConfig(rawEnv = process.env, log = { warn() {} }) {
+  const problems = [];
+  const env = withFileSecrets(rawEnv, problems);
   const nodeEnv = env.NODE_ENV || 'development';
   const production = nodeEnv === 'production';
-  const problems = [];
   const ephemeral = [];
 
   const need = (name) => {
@@ -62,6 +91,12 @@ function loadConfig(env = process.env, log = { warn() {} }) {
     problems.push('In Produktion ist der Speicher-Store nicht zulässig (STORE=mongo)');
   }
 
+  // Hinter einem Reverse-Proxy sehen Rate-Limits und Audit-Log sonst nur die Proxy-IP statt der Client-IP.
+  // Deshalb in Produktion bewusst setzen (Anzahl Proxys, z. B. 1; "0" = kein Proxy).
+  if (production && (env.TRUST_PROXY === undefined || env.TRUST_PROXY === '')) {
+    problems.push('TRUST_PROXY muss in Produktion gesetzt sein (Anzahl vorgeschalteter Proxys, z. B. 1; 0 = kein Proxy)');
+  }
+
   const demo = bool(env.SEED_DEMO, false);
   if (production && demo) problems.push('SEED_DEMO ist in Produktion verboten');
 
@@ -83,7 +118,7 @@ function loadConfig(env = process.env, log = { warn() {} }) {
     keyring,
     requireMfa: bool(env.REQUIRE_MFA, production),
     corsOrigins: (env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
-    trustProxy: env.TRUST_PROXY ? Number(env.TRUST_PROXY) || env.TRUST_PROXY : false,
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
     // OFFEN (Konzept 6.1): gesetzliche/berufsrechtliche Gültigkeitsdauer von Privatrezepten klären.
     rxValidityDays: Number(env.RX_VALIDITY_DAYS || 28),
     scryptN: Number(env.PASSWORD_SCRYPT_N || 32768),
