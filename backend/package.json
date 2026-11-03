@@ -23,7 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.24.7",
     "morgan": "^1.11.0",
-    "uuid": "^14.0.2",
+    "uuid": "^14.0.3",
     "winston": "^3.11.0"
   },
   "devDependencies": {
