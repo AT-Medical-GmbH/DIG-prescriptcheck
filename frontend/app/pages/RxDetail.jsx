@@ -88,7 +88,7 @@ export default function RxDetail() {
       )}
       {dialog === 'unblock' && (
         <ConfirmDialog title="Sperre aufheben?" confirmLabel="Sperre aufheben" busy={busy} onCancel={close} onConfirm={() => act(async () => { await api.post(`/prescriptions/${id}/unblock`, { reason: text }); })}>
-          <Field label="Begründung (Pflicht)" htmlFor="why"><input id="why" value={text} onChange={(e) => setText(e.target.value)} required maxLength={300} autoFocus /></Field><Alert>{error}</Alert>
+          <Field label="Begründung (Pflicht)" htmlFor="why" hint="Bitte keine Patientendaten eintragen."><input id="why" value={text} onChange={(e) => setText(e.target.value)} required maxLength={300} autoFocus /></Field><Alert>{error}</Alert>
         </ConfirmDialog>
       )}
     </div>

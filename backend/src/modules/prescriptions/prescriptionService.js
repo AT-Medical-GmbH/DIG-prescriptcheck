@@ -81,7 +81,8 @@ function createPrescriptionService(ctx) {
       printCount: rx.printCount || 0,
       blockReason: rx.blockReason || null,
       blockedBy: rx.blockedBy || null,
-      qsFlags: rx.qsFlags || [],
+      // nur Art und Zeitpunkt: weder Freitext noch Herkunfts-Organisation der Meldung gehen an die Praxis
+      qsFlags: (rx.qsFlags || []).map((f) => ({ type: f.type, category: f.category || null, at: f.at })),
       redeemedAt: rx.redeemedAt || null,
     };
     if (!full) return base;
@@ -96,7 +97,14 @@ function createPrescriptionService(ctx) {
     };
   }
 
+  /** Gesperrte Praxen dürfen nichts Neues erzeugen/freigeben; Lesen und Sperren bleiben (Patientensicherheit) erlaubt. */
+  async function assertPracticeActive(actor, message = 'Die Praxis ist gesperrt.') {
+    const org = await orgs.findOne({ _id: actor.orgId });
+    if (!org || org.status !== 'ACTIVE') throw forbidden('ORG_SUSPENDED', message);
+  }
+
   async function createDraft(actor, body, meta = {}) {
+    await assertPracticeActive(actor);
     const { content, validityDays } = parseDraft(body);
     const rx = await rxs.insertOne({
       _id: randomUUID(), practiceOrgId: actor.orgId, createdBy: actor._id, state: STATES.DRAFT, version: 1,
@@ -108,6 +116,7 @@ function createPrescriptionService(ctx) {
   }
 
   async function updateDraft(actor, id, body, meta = {}) {
+    await assertPracticeActive(actor);
     const rx = await findOwn(actor, id);
     if (rx.state !== STATES.DRAFT) throw conflict('NOT_A_DRAFT', 'Ausgestellte Rezepte sind unveränderlich. Bitte sperren und neu ausstellen.');
     const { content, validityDays } = parseDraft(body);
@@ -129,8 +138,7 @@ function createPrescriptionService(ctx) {
 
   /** Ausstellen: Seriennummer vergeben, Inhalt hashen, Code signieren, Rezept unveränderlich machen. */
   async function issue(actor, id, meta = {}) {
-    const org = await orgs.findOne({ _id: actor.orgId });
-    if (!org || org.status !== 'ACTIVE') throw forbidden('ORG_SUSPENDED', 'Die Praxis ist gesperrt. Ausstellung nicht möglich.');
+    await assertPracticeActive(actor, 'Die Praxis ist gesperrt. Ausstellung nicht möglich.');
     const rx = await findOwn(actor, id);
     if (rx.state !== STATES.DRAFT) throw conflict('NOT_A_DRAFT', 'Dieses Rezept ist bereits ausgestellt.');
     const content = readContent(rx);
@@ -211,6 +219,7 @@ function createPrescriptionService(ctx) {
   }
 
   async function unblock(actor, id, body, meta = {}) {
+    await assertPracticeActive(actor);
     const reason = v.str(v.obj(body).reason, 'reason', { max: 300 });
     const rx = await findOwn(actor, id);
     if (rx.state !== STATES.BLOCKED) throw conflict('NOT_BLOCKED', 'Das Rezept ist nicht gesperrt.');
@@ -227,8 +236,11 @@ function createPrescriptionService(ctx) {
     return present(await findOwn(actor, id));
   }
 
-  async function list(actor, { state, q, limit = 50 } = {}) {
-    const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  async function list(actor, query = {}) {
+    // Query-Parameter sind beliebig typisiert (?q[]=x, ?state[a]=b): strikt prüfen statt abstürzen
+    const state = v.str(query.state, 'state', { optional: true, max: 20 });
+    const q = v.str(query.q, 'q', { optional: true, max: 100 });
+    const lim = Math.min(Math.max(Number(typeof query.limit === 'string' ? query.limit : 50) || 50, 1), 200);
     const filter = { practiceOrgId: actor.orgId };
     const wantExpired = state === 'EXPIRED';
     if (state && !wantExpired) {

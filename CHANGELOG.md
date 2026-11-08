@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security / Fixed (Qualitätskontrolle nach MVP)
+- Login: atomarer Fehlzähler, atomare TOTP-Schritt-Reservierung (Replay auch bei parallelen Anfragen), Sperrstatus nur mit richtigem Passwort sichtbar
+- Gesperrte Praxis: keine neuen/geänderten Entwürfe und keine Entsperrung (Sperren bleibt bewusst erlaubt)
+- Verdachtsmeldungen nach der Einlösung gehen nicht verloren; QS-Liste enthält eingelöste Rezepte; Praxis sieht nur Art/Kategorie/Zeitpunkt
+- Plattform-Konten nicht per API zurücksetzbar; Organisation wird über Zugangs-Resets benachrichtigt
+- `TRUST_PROXY` in Produktion Pflicht, Secrets auch als `*_FILE`; Query-Parameter strikt validiert; Ratenbegrenzung für Passwort-/MFA-Einrichtung
+- Frontend: kein weißer Bildschirm mehr bei Ladefehlern (+ ErrorBoundary), Dialoge als Formular mit Fokusführung, klare Fehlermeldungen bei Netz-/Proxy-Fehlern
+- Betrieb: Mongo-Anwendungsbenutzer statt Root, Container-Härtung, NGINX-Log ohne Query-String, `backup.sh` ohne `source .env` und mit Entschlüsselungsprüfung (nicht in laufendem Stack getestet)
+- Tests: 467 Backend-Tests (Memory); Abhängigkeits-Updates #60–#62, #64, #66, #67 eingespielt
+
 ### Added
 - **MVP „Verify“** (Konzept Phase 1), siehe `docs/mvp/README.md`: Ausstellen, Drucken, Prüfen, Identitätsabgleich und Einlösung von Privatrezepten
   - Backend `backend/src`: Ed25519-signierter Rezeptcode ohne Patientendaten, eigener QR-Encoder (gegen Referenz geprüft) und PDF-Writer, Zustandsmaschine,

@@ -70,7 +70,7 @@ export default function Users() {
         </div>
         <button className="btn btn-primary" disabled={busy || (platform && !isPlatformRole && !form.orgId)}>Anlegen</button>
       </form>
-      {users.loading ? <Spinner /> : users.data.length === 0 ? <Empty>Keine Nutzer.</Empty> : (
+      {users.loading ? <Spinner /> : !users.data ? null : users.data.length === 0 ? <Empty>Keine Nutzer.</Empty> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th>{platform && <th>Organisation</th>}<th>2FA</th><th>Letzte Anmeldung</th><th>Status</th><th /></tr></thead>

@@ -84,6 +84,20 @@ sudo sh -c 'umask 077; head -c 48 /dev/urandom | base64 > /root/.prescriptcheck-
 - Backups liegen standardmäßig unter `/var/backups/prescriptcheck` (14 Tage). **Zusätzlich an einen zweiten Standort in Deutschland kopieren.**
 - **Ein Backup gilt erst als vorhanden, wenn die Wiederherstellung getestet wurde** – mindestens monatlich auf einem Testsystem (Befehl am Ende von `backup.sh`).
 
+## Datenbank-Benutzer (seit 0.4) und Härtung
+
+- Die Anwendung verbindet sich nicht mehr als Mongo-Root, sondern als eigener Benutzer (`MONGO_APP_USER`, Rolle `readWrite` nur auf `prescriptcheck`).
+  `MONGO_APP_PASSWORD` in `.env` setzen. Das Root-Konto wird nur noch für Backups verwendet.
+- Der Benutzer wird von `mongo-init.sh` **nur beim ersten Start mit leerem Datenvolumen** angelegt. **Bestehende Installation nachrüsten** (einmalig, vor dem Update):
+  ```bash
+  docker compose exec mongo mongosh -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval \
+    "db.getSiblingDB('prescriptcheck').createUser({user:'prescriptcheck_app', pwd:'<MONGO_APP_PASSWORD>', roles:[{role:'readWrite', db:'prescriptcheck'}]})"
+  ```
+- Backend-Container: schreibgeschütztes Dateisystem, keine Linux-Capabilities, `no-new-privileges`. Der Web-Container startet erst, wenn das Backend gesund ist.
+- NGINX protokolliert **ohne Query-String** (Suchbegriffe wie Patientennamen landen nicht im Log) und verwirft Anfragen mit fremdem Host-Namen.
+- `TRUST_PROXY` ist in Produktion Pflicht (Anzahl vorgeschalteter Proxys, hier `1`). Geheimnisse können alternativ als Datei übergeben werden (`JWT_SECRET_FILE`, `MASTER_KEY_FILE`, `SIGNING_PRIVATE_KEY_FILE`, `MONGODB_URI_FILE`).
+- **Stand der Prüfung:** Die Compose-/NGINX-Änderungen dieses Abschnitts sind syntaktisch geprüft, aber **noch nicht in einem laufenden Stack getestet** (kein Docker in der Entwicklungsumgebung). Erster Lauf bitte auf Staging.
+
 ## Aktualisierung und Rückfall
 
 ```bash

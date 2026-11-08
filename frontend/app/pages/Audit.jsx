@@ -35,7 +35,7 @@ export default function Audit() {
       {verify && (verify.ok
         ? <Alert kind="ok">Kette intakt – {verify.count} Einträge geprüft.</Alert>
         : <Alert>Kette beschädigt ab Eintrag {verify.brokenAt} ({verify.reason}).</Alert>)}
-      {log.loading ? <Spinner /> : log.data.entries.length === 0 ? <Empty>Keine Einträge.</Empty> : (
+      {log.loading ? <Spinner /> : !log.data ? null : log.data.entries.length === 0 ? <Empty>Keine Einträge.</Empty> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Zeitpunkt</th><th>Aktion</th><th>Ergebnis</th><th>Rolle</th><th>Rezept-ID</th><th>IP</th></tr></thead>
