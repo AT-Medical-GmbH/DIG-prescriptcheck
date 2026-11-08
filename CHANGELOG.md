@@ -8,7 +8,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security / Fixed (Qualitätskontrolle nach MVP)
+- Login: atomarer Fehlzähler, atomare TOTP-Schritt-Reservierung (Replay auch bei parallelen Anfragen), Sperrstatus nur mit richtigem Passwort sichtbar
+- Gesperrte Praxis: keine neuen/geänderten Entwürfe und keine Entsperrung (Sperren bleibt bewusst erlaubt)
+- Verdachtsmeldungen nach der Einlösung gehen nicht verloren; QS-Liste enthält eingelöste Rezepte; Praxis sieht nur Art/Kategorie/Zeitpunkt
+- Plattform-Konten nicht per API zurücksetzbar; Organisation wird über Zugangs-Resets benachrichtigt
+- `TRUST_PROXY` in Produktion Pflicht, Secrets auch als `*_FILE`; Query-Parameter strikt validiert; Ratenbegrenzung für Passwort-/MFA-Einrichtung
+- Frontend: kein weißer Bildschirm mehr bei Ladefehlern (+ ErrorBoundary), Dialoge als Formular mit Fokusführung, klare Fehlermeldungen bei Netz-/Proxy-Fehlern
+- Betrieb: Mongo-Anwendungsbenutzer statt Root, Container-Härtung, NGINX-Log ohne Query-String, `backup.sh` ohne `source .env` und mit Entschlüsselungsprüfung (nicht in laufendem Stack getestet)
+- Tests: 467 Backend-Tests (Memory); Abhängigkeits-Updates #60–#62, #64, #66, #67 eingespielt
+
 ### Added
+- **MVP „Verify“** (Konzept Phase 1), siehe `docs/mvp/README.md`: Ausstellen, Drucken, Prüfen, Identitätsabgleich und Einlösung von Privatrezepten
+  - Backend `backend/src`: Ed25519-signierter Rezeptcode ohne Patientendaten, eigener QR-Encoder (gegen Referenz geprüft) und PDF-Writer, Zustandsmaschine,
+    atomare Einlösung, Feldverschlüsselung je Mandant, HMAC-verkettetes Audit-Log, Login mit Sperre/Refresh-Rotation/TOTP, Rechtematrix, Mandantentrennung
+  - Frontend `frontend/app` (React/Vite): Praxis-, Apotheken-, QS-, Verwaltungs- und Audit-Ansichten
+  - Betrieb `deploy/mvp`: Docker-Compose-Stack, NGINX, Backup-Skript, Server-Anleitung (in Sandbox getestet)
+  - Tests: 456 Backend-Tests im Speicher-Store, 464 gegen echte MongoDB 7, 4 Frontend-Tests; QR unabhängig dekodiert (zxing-cpp)
+  - Fix: Login-/Refresh-Limiter zählt nur Fehlversuche; NGINX: doppelte Header, Cache-Control, 429 statt 503
+- `docs/konzept/PrescriptCheck_Gesamtkonzept.md` – Gesamtkonzept; `docs/adr/0001-mvp-entscheidungen.md`
+
+### Added (Governance, zuvor)
 - Enterprise metadata: `metadata/repository-profile.yml` with ATMED governance tags
 - `LICENSE` root file referencing `LICENSE_COMMERCIAL.md`
 - `.github/dependabot.yml` for automated dependency security updates

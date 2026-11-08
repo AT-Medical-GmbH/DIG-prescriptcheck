@@ -1,0 +1,20 @@
+# PrescriptCheck Web (MVP): Frontend-Build + NGINX – Build-Kontext: Repository-Wurzel
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY frontend/index.html frontend/vite.config.js ./
+COPY frontend/public ./public
+COPY frontend/app ./app
+# Optionale Links im Footer (zur Build-Zeit): AGB, Datenschutz, Dokumentation
+ARG VITE_LINK_AGB=""
+ARG VITE_LINK_DATENSCHUTZ=""
+ARG VITE_LINK_DOKU=""
+RUN npm run build
+
+FROM nginx:1.27-alpine
+# Die Vorlage wird beim Start per envsubst mit ${DOMAIN} befüllt (offizielles nginx-Image-Verfahren)
+COPY deploy/mvp/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY deploy/mvp/proxy_params_pc /etc/nginx/proxy_params_pc
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80 443

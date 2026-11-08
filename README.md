@@ -41,8 +41,8 @@
 ## Projektstruktur
 
 ```
-/backend            → Node.js (Express) API
-/frontend           → Vue 3 App mit Vite
+/backend            → Node.js (Express) API (Quellcode in backend/src)
+/frontend           → React-App mit Vite (Quellcode in frontend/app)
 /scripts            → Shell-Skripte für Deployment, SSL, Seeding
 /docs               → Dokumentation, Architektur, Indexseiten
 /scorm              → SCORM Module für Weiterbildung
