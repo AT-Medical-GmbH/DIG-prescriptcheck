@@ -15,8 +15,9 @@ function createQsService(ctx, notifications) {
 
   async function listFlagged() {
     const blocked = await rxs.find({ blockedBy: 'QS', state: STATES.BLOCKED }, { sort: { blockedAt: -1 }, limit: 200 });
-    const issued = await rxs.find({ state: STATES.ISSUED }, { sort: { createdAt: -1 }, limit: 500 });
-    const flaggedOpen = issued.filter((r) => (r.qsFlags || []).length > 0);
+    // auch eingelöste Rezepte: eine Meldung nach der Einlösung muss die QS erreichen
+    const candidates = await rxs.find({ state: { $in: [STATES.ISSUED, STATES.REDEEMED] } }, { sort: { createdAt: -1 }, limit: 500 });
+    const flaggedOpen = candidates.filter((r) => (r.qsFlags || []).length > 0);
     const cache = new Map();
     const orgName = async (id) => {
       if (!cache.has(id)) cache.set(id, (await orgs.findOne({ _id: id }))?.name || null);

@@ -56,9 +56,11 @@ function createAuthService(ctx) {
   }
 
   async function failLogin(user, meta, reason) {
-    const failed = (user.failedLogins || 0) + 1;
-    const lock = failed >= MAX_FAILED;
-    await users.updateOne({ _id: user._id }, { $set: { failedLogins: lock ? 0 : failed, lockedUntil: lock ? ctx.now() + LOCK_MS : user.lockedUntil || 0 } });
+    // Atomar hochzählen: parallele Fehlversuche dürfen sich nicht gegenseitig überschreiben.
+    await users.updateOne({ _id: user._id }, { $inc: { failedLogins: 1 } });
+    const fresh = (await users.findOne({ _id: user._id })) || user;
+    const lock = (fresh.failedLogins || 0) >= MAX_FAILED;
+    if (lock) await users.updateOne({ _id: user._id }, { $set: { failedLogins: 0, lockedUntil: ctx.now() + LOCK_MS } });
     await ctx.audit.record({ chains: [chainOf(user)], actor: { userId: user._id, role: user.role, orgId: user.orgId }, action: 'LOGIN_FAILED', result: 'FAIL', detail: { reason, locked: lock }, ip: meta.ip, requestId: meta.requestId });
   }
 
@@ -69,8 +71,14 @@ function createAuthService(ctx) {
       await ctx.audit.record({ chains: ['platform'], action: 'LOGIN_FAILED', result: 'FAIL', detail: { reason: 'UNKNOWN_USER' }, ip: meta.ip, requestId: meta.requestId });
       throw unauthorized('INVALID_CREDENTIALS', 'E-Mail oder Passwort falsch.');
     }
-    if (user.lockedUntil && user.lockedUntil > ctx.now()) throw tooMany('ACCOUNT_LOCKED', 'Konto vorübergehend gesperrt. Bitte später erneut versuchen.');
+    const locked = !!(user.lockedUntil && user.lockedUntil > ctx.now());
     const passwordOk = await verifyPassword(password, user.passwordHash);
+    if (locked) {
+      // Sperrstatus nur gegenüber Inhabern des richtigen Passworts offenlegen (kein Konto-Orakel);
+      // Versuche während der Sperre zählen nicht und verlängern sie nicht.
+      if (passwordOk) throw tooMany('ACCOUNT_LOCKED', 'Konto vorübergehend gesperrt. Bitte später erneut versuchen.');
+      throw unauthorized('INVALID_CREDENTIALS', 'E-Mail oder Passwort falsch.');
+    }
     if (!passwordOk || user.status !== 'ACTIVE') {
       await failLogin(user, meta, passwordOk ? 'DISABLED' : 'BAD_PASSWORD');
       throw unauthorized('INVALID_CREDENTIALS', 'E-Mail oder Passwort falsch.');
@@ -81,12 +89,17 @@ function createAuthService(ctx) {
       if (!totp) throw unauthorized('MFA_REQUIRED', 'Bitte den Code aus der Authenticator-App eingeben.');
       const secret = ctx.vault.decrypt(user.orgId || 'platform', user.mfaSecretEnc);
       usedStep = verifyTotp(secret, totp, ctx.now());
-      if (usedStep === null || usedStep <= (user.lastTotpStep || 0)) {
+      // Schritt atomar reservieren: ein Code ist genau einmal einlösbar, auch bei parallelen Anfragen.
+      const reserved = usedStep === null ? null : await users.updateOne(
+        { _id: user._id, lastTotpStep: typeof user.lastTotpStep === 'number' ? { $lt: usedStep } : null },
+        { $set: { lastTotpStep: usedStep } },
+      );
+      if (!reserved || reserved.modifiedCount !== 1) {
         await failLogin(user, meta, 'BAD_TOTP');
         throw unauthorized('INVALID_CREDENTIALS', 'E-Mail, Passwort oder Code falsch.');
       }
     }
-    await users.updateOne({ _id: user._id }, { $set: { failedLogins: 0, lockedUntil: 0, lastLoginAt: ctx.now(), ...(usedStep !== null ? { lastTotpStep: usedStep } : {}) } });
+    await users.updateOne({ _id: user._id }, { $set: { failedLogins: 0, lockedUntil: 0, lastLoginAt: ctx.now() } });
     const tokens = await startSession(user, meta);
     await ctx.audit.record({ chains: [chainOf(user)], actor: { userId: user._id, role: user.role, orgId: user.orgId }, action: 'LOGIN_SUCCESS', ip: meta.ip, requestId: meta.requestId });
     const org = user.orgId ? await orgs.findOne({ _id: user.orgId }) : null;

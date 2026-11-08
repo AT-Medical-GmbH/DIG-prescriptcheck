@@ -44,6 +44,24 @@ describe.each(targets)('Store-Vertrag: %s', (_name, make) => {
     expect((await c.find({ read: { $ne: true } })).length).toBe(3);
   });
 
+  test('bedingtes Update als atomare Reservierung (null-Filter auf fehlende Felder, $lt)', async () => {
+    const c = store.collection('users');
+    await c.insertOne({ _id: 'u1', email: 'r@x.de' });
+    // Feld fehlt: Filter auf null trifft, genau einmal
+    const first = await c.updateOne({ _id: 'u1', lastTotpStep: null }, { $set: { lastTotpStep: 10 } });
+    const second = await c.updateOne({ _id: 'u1', lastTotpStep: null }, { $set: { lastTotpStep: 11 } });
+    expect([first.modifiedCount, second.modifiedCount]).toEqual([1, 0]);
+    // gleicher oder älterer Schritt wird abgewiesen, neuerer akzeptiert (auch bei Wert 0)
+    expect((await c.updateOne({ _id: 'u1', lastTotpStep: { $lt: 10 } }, { $set: { lastTotpStep: 10 } })).modifiedCount).toBe(0);
+    expect((await c.updateOne({ _id: 'u1', lastTotpStep: { $lt: 12 } }, { $set: { lastTotpStep: 12 } })).modifiedCount).toBe(1);
+    await c.insertOne({ _id: 'u2', email: 'z@x.de', lastTotpStep: 0 });
+    expect((await c.updateOne({ _id: 'u2', lastTotpStep: { $lt: 5 } }, { $set: { lastTotpStep: 5 } })).modifiedCount).toBe(1);
+    // atomarer Zähler
+    await c.updateOne({ _id: 'u1' }, { $inc: { failedLogins: 1 } });
+    await c.updateOne({ _id: 'u1' }, { $inc: { failedLogins: 1 } });
+    expect((await c.findOne({ _id: 'u1' })).failedLogins).toBe(2);
+  });
+
   test('Eindeutigkeit wird als DUPLICATE gemeldet', async () => {
     const u = store.collection('users');
     await u.insertOne({ email: 'a@x.de' });

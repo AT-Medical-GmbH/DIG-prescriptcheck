@@ -14,7 +14,7 @@ export default function Notifications() {
         {unread > 0 && <button className="btn" onClick={() => run(async () => { await api.post('/notifications/read-all'); list.reload(); })}>Alle als gelesen markieren</button>}
       </div>
       <Alert>{error || list.error}</Alert>
-      {list.loading ? <Spinner /> : list.data.length === 0 ? <Empty>Keine Mitteilungen.</Empty> : (
+      {list.loading ? <Spinner /> : !list.data ? null : list.data.length === 0 ? <Empty>Keine Mitteilungen.</Empty> : (
         <ul className="notes">
           {list.data.map((n) => (
             <li key={n.id} className={n.read ? '' : 'unread'}>

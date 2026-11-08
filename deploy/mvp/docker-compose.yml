@@ -11,8 +11,13 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      # Die Anwendung nutzt einen eigenen Benutzer nur für die Datenbank "prescriptcheck" (kein Root, siehe mongo-init.sh)
+      MONGO_APP_USER: ${MONGO_APP_USER:-prescriptcheck_app}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
     volumes:
       - mongo-data:/data/db
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/10-app-user.sh:ro
+    security_opt: ["no-new-privileges:true"]
                                     # kein Port nach außen: nur im Compose-Netz erreichbar
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "-u", "${MONGO_ROOT_USER}", "-p", "${MONGO_ROOT_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping').ok"]
@@ -31,7 +36,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}   # Staging/Schulung: NODE_ENV=staging (nie mit echten Daten!)
       PORT: "3000"
       STORE: mongo
-      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/prescriptcheck?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_APP_USER:-prescriptcheck_app}:${MONGO_APP_PASSWORD}@mongo:27017/prescriptcheck?authSource=prescriptcheck
       JWT_SECRET: ${JWT_SECRET}
       MASTER_KEY: ${MASTER_KEY}
       SIGNING_KEY_ID: ${SIGNING_KEY_ID:-1}
@@ -39,10 +44,15 @@ services:
       SIGNING_PUBLIC_KEYS_JSON: ${SIGNING_PUBLIC_KEYS_JSON:-}
       REQUIRE_MFA: ${REQUIRE_MFA:-true}
       RX_VALIDITY_DAYS: ${RX_VALIDITY_DAYS:-28}
-      TRUST_PROXY: "1"              # genau ein vorgeschalteter Proxy (NGINX)
+      TRUST_PROXY: "1"              # genau ein vorgeschalteter Proxy (NGINX); in Produktion Pflicht
       PUBLIC_URL: https://${DOMAIN}
       SEED_DEMO: ${SEED_DEMO:-false}      # nur außerhalb von Produktion zulässig (erfundene Demo-Daten)
       SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+    # Härtung: unprivilegierter Prozess ohne Capabilities, schreibgeschütztes Dateisystem
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   web:
     build:
@@ -53,7 +63,8 @@ services:
         VITE_LINK_DATENSCHUTZ: ${LINK_DATENSCHUTZ:-}
         VITE_LINK_DOKU: ${LINK_DOKU:-}
     restart: unless-stopped
-    depends_on: [backend]
+    depends_on:
+      backend: { condition: service_healthy }
     environment:
       DOMAIN: ${DOMAIN}
     ports:

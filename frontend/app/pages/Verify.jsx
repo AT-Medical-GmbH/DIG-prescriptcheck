@@ -188,14 +188,14 @@ export default function Verify() {
         <ConfirmDialog title="Verdacht melden" confirmLabel="Melden und Rezept sperren" danger busy={busy} onCancel={() => setReport(null)} onConfirm={sendReport}>
           <p>Das Rezept wird sofort gesperrt. Die Praxis und die Qualitätssicherung werden informiert. Die vorlegende Person erfährt davon nichts.</p>
           <Field label="Grund" htmlFor="rcat"><select id="rcat" value={report.category} onChange={(e) => setReport({ ...report, category: e.target.value })}>{Object.entries(REPORT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
-          <Field label="Anmerkung (optional)" htmlFor="rnote"><input id="rnote" maxLength={500} value={report.note} onChange={(e) => setReport({ ...report, note: e.target.value })} /></Field>
+          <Field label="Anmerkung (optional)" htmlFor="rnote" hint="Bitte keine Patientendaten eintragen."><input id="rnote" maxLength={500} value={report.note} onChange={(e) => setReport({ ...report, note: e.target.value })} /></Field>
           <p className="muted small">Bei akuter Gefahr rufen Sie bitte den Notruf 110.</p>
         </ConfirmDialog>
       )}
       {cancel && (
         <ConfirmDialog title="Einlösung stornieren?" confirmLabel="Stornieren" danger busy={busy} onCancel={() => setCancel(false)} onConfirm={doCancel}>
           <p>Das Rezept wird wieder einlösbar. Die Praxis wird informiert.</p>
-          <Field label="Begründung (Pflicht)" htmlFor="cr"><input id="cr" required maxLength={300} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} autoFocus /></Field>
+          <Field label="Begründung (Pflicht)" htmlFor="cr" hint="Bitte keine Patientendaten eintragen."><input id="cr" required maxLength={300} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} autoFocus /></Field>
         </ConfirmDialog>
       )}
     </div>
